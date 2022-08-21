@@ -138,6 +138,7 @@ def handle(user):
             break
 
 def terminal_listen():
+
         while True:
             try:
                 client, address = term_s.accept()
@@ -151,9 +152,14 @@ def terminal_listen():
                     if message == f.read().rstrip('\n'):
                         client.send("VALID".encode('utf-8'))
                         print(f"[CONNECTED] {address[0]} connected via an admin terminal")
+                        admin = User(client, address, "Administrator", "1")
+
+                        def precv():
+                            return client.recv(int(client.recv(HEADER).decode('utf-8'))).decode('utf-8')
+
                         while True:
                             try:
-                                command = client.recv(int(client.recv(HEADER).decode('utf-8'))).decode('utf-8')
+                                command = precv()
                                 if command == "kill":
                                     backup_chat()
                                     try:
@@ -164,17 +170,30 @@ def terminal_listen():
                                     print(f"[TERMINAL] {address[0]} killed server")
                                     exit(0)
                                 elif command == "pswd":
-                                    oldpassw = client.recv(int(client.recv(HEADER).decode('utf-8'))).decode('utf-8')
+                                    oldpassw = precv()
                                     with open("data/terminalpass.txt", "r+") as f:
                                         if oldpassw == f.read().rstrip('\n'):
                                             client.send("VALID".encode('utf-8'))
-                                            newpassw = client.recv(int(client.recv(HEADER).decode('utf-8'))).decode('utf-8')
+                                            newpassw = precv()
                                             f.truncate(0)
                                             f.seek(0)
                                             f.write(newpassw)
                                             print(f"[TERMINAL] {address[0]} changed password to {newpassw}")
                                         else:
                                             client.send("INVALID".encode('utf-8'))
+                                elif command[:9] == "msg user ":
+                                    userfound = False
+                                    for user in users:
+                                        if user.ip == command[9:]:
+                                            target = user
+                                            userfound = True
+                                            break
+                                    if userfound:
+                                        admin.targeted_send("VALID", admin)
+                                        message = precv()
+                                        admin.targeted_send(f"[{admin.nickname}(ADMIN) @ {time.strftime('%H:%M', time.localtime())}] " + message, target)
+                                    else:
+                                        admin.targeted_send("INVALID", admin)
                             except:
                                 client.close()
                                 break
@@ -184,7 +203,7 @@ def terminal_listen():
             except Exception as e:
                 print("[ERROR] server terminal error")
                 try:
-                    client.close()
+                    admin.cs.close()
                 except UnboundLocalError:
                     pass
 

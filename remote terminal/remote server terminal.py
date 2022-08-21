@@ -25,6 +25,11 @@ def psend(s, message):
     s.send(str(len(str(message))).encode('utf-8') + b" " * (HEADER - len(str(len(str(message))).encode('utf-8'))))
     s.send(message.encode('utf-8'))
 
+def precv(s):
+    recvheader = int(s.recv(HEADER).decode('utf-8'))
+    message = s.recv(recvheader).decode('utf-8')
+    return message
+
 password = hashlib.sha256(getpass("Administrator password: ").encode('utf-8')).hexdigest()
 psend(s, password)
 
@@ -47,12 +52,13 @@ while True:
               'msg user {user.ip} | privately message a user\n'
               'msg room {room} | message a room\n'
               'msg all | message all users\n'
+              'room {user.room} | join the specified room (defaulted to \'1\')\n)'
               'getrooms | returns a list of all rooms that are active\n'
               'getusers | returns a list of active user nicknames and their ip\n'
               'lookup {user.ip} | returns user ip, nickname, room, blacklist status etc\n'
               'blacklist | show blacklisted IPs\n'
               'ban {user.ip} | add user to the blacklist\n'
-              'nickname | change your displayed nickname (defaulted to \'admin\')\n')
+              'nickname | change your displayed nickname (defaulted to \'Administrator\')\n')
     elif command == "kill":
         psend(s, command)
         quit()
@@ -67,5 +73,12 @@ while True:
 
         newpswd = hashlib.sha256(getpass("New password: ").encode('utf-8')).hexdigest()
         psend(s, newpswd)
+    elif command[:9] == "msg user ":
+        psend(s, command)
+        reply = precv(s)
+        if reply == "INVALID":
+            print("UserNotFoundError: user does not exist")
+        if reply == "VALID":
+            psend(s, input(f"[DM {command[9:].rstrip()}] "))
     else:
         print("Invalid syntax | type help for a list of commands")
