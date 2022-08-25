@@ -33,11 +33,15 @@ class User:
         self.ip = self.address[0]
         self.nickname = nickname
         self.room = str(room)
-
-    def targeted_send(self, msg, target_user):
-        length = str(len(str(msg))).encode('utf-8') + b" " * (HEADER - len(str(len(str(msg))).encode('utf-8')))
+    def targeted_send(self, msg, target_user, save=True):
+        if msg in ALL_PCOLS:
+            msg = "​" + msg
+        #length = str(len(str(msg))).encode('utf-8') + b" " * (HEADER - len(str(len(str(msg))).encode('utf-8')))
+        length = str(len(str(msg))).rjust(HEADER, " ").encode('utf-8')  # test me
         target_user.cs.send(length)
         target_user.cs.send(msg.encode('utf-8'))
+        if save:
+            messages.append((msg, self.room))
 
     def precv(self):
         recvheader = int(self.cs.recv(HEADER).decode('utf-8'))
@@ -124,7 +128,7 @@ def handle(user):
     time.sleep(1)
     user.fetch()
     user.broadcast(f"{user.nickname} joined the chat!")
-    user.targeted_send(f"--== Connected to {HOST} | room code: \'{user.room}\' ==--", user)
+    user.targeted_send(f"--== Connected to {HOST} | room code: \'{user.room}\' ==--", user, save=False)
     while True:
         try:
             t = time.strftime("%H:%M", time.localtime())
@@ -144,12 +148,12 @@ def terminal_listen():
                 client, address = term_s.accept()
                 try:
                     length = client.recv(HEADER).decode('utf-8')
-                    message = client.recv(int(length)).decode('utf-8')
+                    password = client.recv(int(length)).decode('utf-8')
                 except ConnectionResetError:
                     client.close()
                     continue
                 with open("data/terminalpass.txt", "r") as f:
-                    if message == f.read().rstrip('\n'):
+                    if password == f.read().rstrip('\n'):
                         client.send("VALID".encode('utf-8'))
                         print(f"[CONNECTED] {address[0]} connected via an admin terminal")
                         admin = User(client, address, "Administrator", "1")
@@ -181,6 +185,8 @@ def terminal_listen():
                                             print(f"[TERMINAL] {address[0]} changed password to {newpassw}")
                                         else:
                                             client.send("INVALID".encode('utf-8'))
+                                elif command == "stat":
+                                    admin.targeted_send("ONLINE", admin, save=False)
                                 elif command[:9] == "msg user ":
                                     userfound = False
                                     for user in users:
@@ -189,18 +195,34 @@ def terminal_listen():
                                             userfound = True
                                             break
                                     if userfound:
-                                        admin.targeted_send("VALID", admin)
-                                        message = precv()
-                                        admin.targeted_send(f"[{admin.nickname}(ADMIN) @ {time.strftime('%H:%M', time.localtime())}] " + message, target)
+                                        admin.targeted_send("VALID", admin, save=False)
+                                        password = precv()
+                                        admin.targeted_send(f"[{admin.nickname}(ADMIN)(DM) @ {time.strftime('%H:%M', time.localtime())}] " + password, target)
                                     else:
-                                        admin.targeted_send("INVALID", admin)
+                                        admin.targeted_send("INVALID", admin, save=False)
+
+                                elif command[:9] == "msg room ":
+                                    admin.room = command[9:]
+                                    msg = precv()
+                                    admin.broadcast(f"[{admin.nickname}(ADMIN) @ {time.strftime('%H:%M', time.localtime())}] " + msg)
+                                elif command == "msg all":
+                                    msg = precv()
+                                    admin.broadcast(f"[{admin.nickname}(ADMIN)(GLOBAL) @ {time.strftime('%H:%M', time.localtime())}] " + msg, roomonly=False)
+                                elif command == "getrooms":
+                                    rooms = ""
+                                    for user in users:
+                                        rooms += f' "{user.room}",'
+                                    if rooms != "":
+                                        admin.targeted_send(rooms[1:-1], admin, save=False)
+                                    else:
+                                        admin.targeted_send("No active rooms", admin, save=False)
                             except:
                                 client.close()
                                 break
                     else:
                         client.send("INVALID".encode('utf-8'))
 
-            except Exception as e:
+            except Exception:
                 print("[ERROR] server terminal error")
                 try:
                     admin.cs.close()
