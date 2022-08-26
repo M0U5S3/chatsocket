@@ -163,6 +163,8 @@ def terminal_listen():
                     continue
                 with open("data/terminalpass.txt", "r") as f:
                     if password == f.read().rstrip('\n'):
+                        length = str(len(str("VALID"))).rjust(HEADER, " ").encode('utf-8')  # works
+                        client.send(length)
                         client.send("VALID".encode('utf-8'))
                         print(f"[CONNECTED] {address[0]} connected via an admin terminal")
                         admin = User(client, address, "Administrator", "1")
@@ -233,14 +235,29 @@ def terminal_listen():
                                         admin.targeted_send(userstring[1:-1], admin, save=False)
                                     else:
                                         admin.targeted_send("No active users", admin, save=False)
-                            except:
+                                elif command[:7] == "lookup ":
+                                    found = False
+                                    for user in users:
+                                        if user.ip == command[7:]:
+                                            found = True
+                                            break
+                                    if found:
+                                        admin.targeted_send(f"IP = '{user.ip}', Nickname = '{user.nickname}', Room = '{user.room}'", admin, save=False)
+                                    else:
+                                        admin.targeted_send("User is non-existent or is offline", admin, save=False)
+                            except Exception as e:
                                 client.close()
+                                print("[ERROR] server terminal error")
+                                print(e)
                                 break
                     else:
+                        length = str(len(str("INVALID"))).rjust(HEADER, " ").encode('utf-8')  # works
+                        client.send(length)
                         client.send("INVALID".encode('utf-8'))
 
-            except Exception:
+            except Exception as e:
                 print("[ERROR] server terminal error")
+                print(e)
                 try:
                     admin.cs.close()
                 except UnboundLocalError:
