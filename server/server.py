@@ -3,11 +3,11 @@ import threading
 import time
 import pickle
 
-HOST = socket.gethostbyname(socket.gethostname())
+host = socket.gethostbyname(socket.gethostname())
 PORT = 9090
 TERM_PORT = 9091
-ADDR = (HOST, PORT)
-TERM_ADDR = (HOST, TERM_PORT)
+ADDR = (host, PORT)
+TERM_ADDR = (host, TERM_PORT)
 HEADER = 64
 
 # \ = end of path, --_>> = send, --_<< = recv
@@ -37,7 +37,7 @@ class User:
         if msg in ALL_PCOLS:
             msg = "​" + msg
         #length = str(len(str(msg))).encode('utf-8') + b" " * (HEADER - len(str(len(str(msg))).encode('utf-8')))
-        length = str(len(str(msg))).rjust(HEADER, " ").encode('utf-8')  # test me
+        length = str(len(str(msg))).rjust(HEADER, " ").encode('utf-8')  # works
         target_user.cs.send(length)
         target_user.cs.send(msg.encode('utf-8'))
         if save:
@@ -55,20 +55,29 @@ class User:
             messages.append((message, self.room))
 
         if roomonly:
-            print(f"[RO_BROADCAST] [{self.ip}: {self.nickname}] " + message)
+            print(f"[RO_BROADCAST] " + message)
             for user in users:
                 if user.room == self.room:
                     if message in ALL_PCOLS and not is_pcol:
                         self.targeted_send(("​" + message), user)
+                        if user == self:
+                            self.targeted_send(f"Nice try {self.nickname}", user, save=False)
+                            self.targeted_send(("​" + message), user)
                     else:
                         self.targeted_send(message, user)
+                        if user == self:
+                            self.targeted_send(message, user)
         else:
-            print(f"[ALL_BROADCAST] [{self.ip}: {self.nickname}] " + message)
+            print(f"[ALL_BROADCAST] " + message)
             for user in users:
                 if message in ALL_PCOLS and not is_pcol:
                     self.targeted_send(("​" + message), user)
+                    if user == self:
+                        self.targeted_send(("​" + message), user)
                 else:
                     self.targeted_send(message, user)
+                    if user == self:
+                        self.targeted_send(message, user)
 
     def fetch(self):
         room_messages = []
@@ -128,7 +137,7 @@ def handle(user):
     time.sleep(1)
     user.fetch()
     user.broadcast(f"{user.nickname} joined the chat!")
-    user.targeted_send(f"--== Connected to {HOST} | room code: \'{user.room}\' ==--", user, save=False)
+    user.targeted_send(f"--== Connected to {host} | room code: \'{user.room}\' ==--", user, save=False)
     while True:
         try:
             t = time.strftime("%H:%M", time.localtime())
@@ -216,6 +225,14 @@ def terminal_listen():
                                         admin.targeted_send(rooms[1:-1], admin, save=False)
                                     else:
                                         admin.targeted_send("No active rooms", admin, save=False)
+                                elif command == "getusers":
+                                    userstring = ""
+                                    for user in users:
+                                        userstring += f" ({user.ip}, {user.nickname}),"
+                                    if rooms != "":
+                                        admin.targeted_send(userstring[1:-1], admin, save=False)
+                                    else:
+                                        admin.targeted_send("No active users", admin, save=False)
                             except:
                                 client.close()
                                 break
@@ -265,8 +282,8 @@ def accept():
 server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 server.bind(ADDR)
 server.listen()
-print(f"[STARTING] Listening on {HOST}, port {PORT}")
-print(f"[STARTING] Listening on {HOST}, port {TERM_PORT}")
+print(f"[STARTING] Listening on {host}, port {PORT}")
+print(f"[STARTING] Listening on {host}, port {TERM_PORT}")
 
 term_s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 term_s.bind(TERM_ADDR)

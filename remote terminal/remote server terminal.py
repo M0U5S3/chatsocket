@@ -2,96 +2,115 @@ import socket
 import hashlib
 from getpass import getpass
 
-HOST = input("Host: (or input \"ls\" for load save) ")
-PORT = 9091
-ADDR = (HOST, PORT)
 HEADER = 64
 TIMEOUT = 2
+PORT = 9091
 
-if HOST == "ls":
-    with open("data/host.txt", "r") as f:
-        HOST = f.read()
-        print(HOST)
-        ADDR = (HOST, PORT)
-elif input("save host ip? y/n ") == "y":
-    print("saving ip")
-    with open("data/host.txt", "w") as f:
-        f.write(HOST)
+try:
+    while True:
+        host = input("Host: (or input \"ls\" for load save) ")
+        ADDR = (host, PORT)
 
-s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-s.settimeout(TIMEOUT)
-s.connect(ADDR)
+        if host == "ls":
+            with open("data/host.txt", "r") as f:
+                host = f.read()
+                print(host)
+                ADDR = (host, PORT)
+        elif input("save host ip? y/n ") == "y":
+            print("saving ip")
+            with open("data/host.txt", "w") as f:
+                f.write(host)
 
-def psend(s, message):
-    s.send(str(len(str(message))).encode('utf-8') + b" " * (HEADER - len(str(len(str(message))).encode('utf-8'))))
-    s.send(message.encode('utf-8'))
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        s.settimeout(TIMEOUT)
+        try:
+            s.connect(ADDR)
+            break
+        except TimeoutError:
+            print("Server is offline or doesn't exist")
+    def psend(s, message):
+        s.send(str(len(str(message))).encode('utf-8') + b" " * (HEADER - len(str(len(str(message))).encode('utf-8'))))
+        s.send(message.encode('utf-8'))
 
-def precv(s):
-    recvheader = int(s.recv(HEADER).decode('utf-8'))
-    message = s.recv(recvheader).decode('utf-8')
-    return message
+    def precv(s):
+        recvheader = int(s.recv(HEADER).decode('utf-8'))
+        message = s.recv(recvheader).decode('utf-8')
+        return message
 
-def restart():
-    global HOST
-    global ADDR
-    global s
-    global password
-    HOST = input("Host: (or input \"ls\" for load save) ")
-    ADDR = (HOST, PORT)
+    def restart():
+        global host
+        global ADDR
+        global s
+        global password
+        while True:
+            host = input("Host: (or input \"ls\" for load save) ")
+            ADDR = (host, PORT)
 
-    if HOST == "ls":
-        with open("data/host.txt", "r") as f:
-            HOST = f.read()
-            print(HOST)
-            ADDR = (HOST, PORT)
-    elif input("save host ip? y/n ") == "y":
-        print("saving ip")
-        with open("data/host.txt", "w") as f:
-            f.write(HOST)
-    try:
-        s.close()
-    except:
-        pass
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.settimeout(TIMEOUT)
-    s.connect(ADDR)
+            if host == "ls":
+                with open("data/host.txt", "r") as f:
+                    host = f.read()
+                    print(host)
+                    ADDR = (host, PORT)
+            elif input("save host ip? y/n ") == "y":
+                print("saving ip")
+                with open("data/host.txt", "w") as f:
+                    f.write(host)
+            try:
+                s.close()
+            except:
+                pass
+            s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            s.settimeout(TIMEOUT)
+            try:
+                s.connect(ADDR)
+                break
+            except TimeoutError:
+                print("Server is offline or doesn't exist")
+        password = hashlib.sha256(getpass("Administrator password: ").encode('utf-8')).hexdigest()
+        psend(s, password)
+        reply = s.recv(1024).decode('utf-8')
+
+        if reply == "INVALID":
+            print("Password not accepted")
+            quit()
+
+    def refresh():
+        try:
+            global s
+            while True:
+                s.close()
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(TIMEOUT)
+
+                try:
+                    s.connect(ADDR)
+                    break
+                except TimeoutError:
+                    print("Server is offline or doesn't exist")
+
+            psend(s, password)
+            reply = s.recv(1024).decode('utf-8')
+            if reply == "INVALID":
+                print("Password not accepted")
+                s.close()
+                quit()
+            elif reply == "VALID":
+                print("operation successful")
+        except ConnectionResetError:
+            restart()
+        except TimeoutError:
+            restart()
+
     password = hashlib.sha256(getpass("Administrator password: ").encode('utf-8')).hexdigest()
     psend(s, password)
+
     reply = s.recv(1024).decode('utf-8')
 
     if reply == "INVALID":
         print("Password not accepted")
         quit()
 
-def refresh():
-    try:
-        global s
-        s.close()
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.settimeout(TIMEOUT)
-        s.connect(ADDR)
-        psend(s, password)
-        reply = s.recv(1024).decode('utf-8')
-        if reply == "INVALID":
-            print("Password not accepted")
-            s.close()
-            quit()
-        elif reply == "VALID":
-            print("operation successful")
-    except ConnectionResetError:
-        restart()
-
-password = hashlib.sha256(getpass("Administrator password: ").encode('utf-8')).hexdigest()
-psend(s, password)
-
-reply = s.recv(1024).decode('utf-8')
-
-if reply == "INVALID":
-    print("Password not accepted")
-    quit()
-
-while True:
-    try:
+    while True:
         command = input(">>> ")
         if command == "quit":
             s.close()
@@ -135,14 +154,16 @@ while True:
         elif command == "restart":
             restart()
         elif command == "stat":
-            psend(s, command)
             try:
+                psend(s, command)
                 print(precv(s))
-            except [TimeoutError, ConnectionResetError] as e:
-                if e == ConnectionResetError:
-                    print("OFFLINE")
-                elif e == TimeoutError:
-                    print("Server took too long to reply")
+            except ConnectionResetError:
+                print("OFFLINE")
+                option = input("Attempt refresh? y/n ")
+                if option == "y":
+                    refresh()
+            except TimeoutError:
+                print("Server took too long to reply")
                 option = input("Attempt refresh? y/n ")
                 if option == "y":
                     refresh()
@@ -175,8 +196,11 @@ while True:
         elif command == "getrooms":
             psend(s, command)
             print(precv(s))
+        elif command == "getusers":
+            psend(s, command)
+            print(precv(s))
         else:
             print("Invalid syntax | type help for a list of commands")
-    except ConnectionResetError:
-        print("Connection reset | Attempting refresh")
-        refresh()
+except ConnectionResetError:
+    print("Connection reset | Attempting refresh")
+    refresh()

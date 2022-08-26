@@ -4,7 +4,7 @@ import tkinter
 import tkinter.scrolledtext
 from tkinter import simpledialog
 
-HOST = input("Host: (or input \"ls\" for load save) ")
+host = input("Host: (or input \"ls\" for load save) ")
 PORT = 9090
 HEADER = 64
 
@@ -23,14 +23,14 @@ for i in PCOLS.keys():
     for x in PCOLS[i].keys():
         ALL_PCOLS.append(PCOLS[i][x])
 
-if HOST == "ls":
+if host == "ls":
     with open("data/host.txt", "r") as f:
-        HOST = f.read()
-        print(HOST)
+        host = f.read()
+        print(host)
 elif input("save host ip? y/n ") == "y":
     print("saving ip")
     with open("data/host.txt", "w") as f:
-        f.write(HOST)
+        f.write(host)
 
 class Client:
 
@@ -135,4 +135,4 @@ class Client:
                 self.stop
                 break
 
-client = Client(HOST, PORT)
+client = Client(host, PORT)
