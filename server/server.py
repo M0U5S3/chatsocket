@@ -59,24 +59,28 @@ class User:
             for user in users:
                 if user.room == self.room:
                     if message in ALL_PCOLS and not is_pcol:
-                        self.targeted_send(("​" + message), user)
                         if user == self:
                             self.targeted_send(f"Nice try {self.nickname}", user, save=False)
                             self.targeted_send(("​" + message), user)
+                        else:
+                            self.targeted_send(("​" + message), user)
                     else:
-                        self.targeted_send(message, user)
                         if user == self:
+                            self.targeted_send(message, user)
+                        else:
                             self.targeted_send(message, user)
         else:
             print(f"[ALL_BROADCAST] " + message)
             for user in users:
                 if message in ALL_PCOLS and not is_pcol:
-                    self.targeted_send(("​" + message), user)
                     if user == self:
                         self.targeted_send(("​" + message), user)
+                    else:
+                        self.targeted_send(("​" + message), user)
                 else:
-                    self.targeted_send(message, user)
                     if user == self:
+                        self.targeted_send(message, user)
+                    else:
                         self.targeted_send(message, user)
 
     def fetch(self):
@@ -142,8 +146,11 @@ def handle(user):
         try:
             t = time.strftime("%H:%M", time.localtime())
             message = f"[{user.nickname} @ {t}] " + user.precv().strip('\n ')
+            if user.ip in blacklist:
+                user.broadcast(f"{user.nickname} is banned", roomonly=False)
+                raise Exception
             user.broadcast(message)
-        except:
+        except Exception:
             users.remove(user)
             user.cs.close()
             print(f"[DISCONNECTION] [{user.ip}: {user.nickname}] disconnected")
@@ -151,122 +158,138 @@ def handle(user):
             break
 
 def terminal_listen():
-
-        while True:
+    global blacklist
+    while True:
+        try:
+            client, address = term_s.accept()
             try:
-                client, address = term_s.accept()
-                try:
-                    length = client.recv(HEADER).decode('utf-8')
-                    password = client.recv(int(length)).decode('utf-8')
-                except ConnectionResetError:
-                    client.close()
-                    continue
-                with open("data/terminalpass.txt", "r") as f:
-                    if password == f.read().rstrip('\n'):
-                        length = str(len(str("VALID"))).rjust(HEADER, " ").encode('utf-8')  # works
-                        client.send(length)
-                        client.send("VALID".encode('utf-8'))
-                        print(f"[CONNECTED] {address[0]} connected via an admin terminal")
-                        admin = User(client, address, "Administrator", "1")
+                length = client.recv(HEADER).decode('utf-8')
+                password = client.recv(int(length)).decode('utf-8')
+            except ConnectionResetError:
+                client.close()
+                continue
+            with open("data/terminalpass.txt", "r") as f:
+                if password == f.read().rstrip('\n'):
+                    length = str(len(str("VALID"))).rjust(HEADER, " ").encode('utf-8')  # works
+                    client.send(length)
+                    client.send("VALID".encode('utf-8'))
+                    print(f"[CONNECTED] {address[0]} connected via an admin terminal")
+                    admin = User(client, address, "Administrator", "1")
 
-                        def precv():
-                            return client.recv(int(client.recv(HEADER).decode('utf-8'))).decode('utf-8')
+                    def precv():
+                        return client.recv(int(client.recv(HEADER).decode('utf-8'))).decode('utf-8')
 
-                        while True:
-                            try:
-                                command = precv()
-                                if command == "kill":
-                                    backup_chat()
-                                    try:
-                                        protocol('DISCONNECT_CLIENTS')
-                                        print(f"[TERMINAL] {address[0]} safely disconnected all clients")
-                                    except UnboundLocalError:
-                                        print(f"[TERMINAL] {address[0]} tried to disconnect clients but there are none")
-                                    print(f"[TERMINAL] {address[0]} killed server")
-                                    exit(0)
-                                elif command == "pswd":
-                                    oldpassw = precv()
-                                    with open("data/terminalpass.txt", "r+") as f:
-                                        if oldpassw == f.read().rstrip('\n'):
-                                            client.send("VALID".encode('utf-8'))
-                                            newpassw = precv()
-                                            f.truncate(0)
-                                            f.seek(0)
-                                            f.write(newpassw)
-                                            print(f"[TERMINAL] {address[0]} changed password to {newpassw}")
-                                        else:
-                                            client.send("INVALID".encode('utf-8'))
-                                elif command == "stat":
-                                    admin.targeted_send("ONLINE", admin, save=False)
-                                elif command[:9] == "msg user ":
-                                    userfound = False
-                                    for user in users:
-                                        if user.ip == command[9:]:
-                                            target = user
-                                            userfound = True
-                                            break
-                                    if userfound:
-                                        admin.targeted_send("VALID", admin, save=False)
-                                        password = precv()
-                                        admin.targeted_send(f"[{admin.nickname}(ADMIN)(DM) @ {time.strftime('%H:%M', time.localtime())}] " + password, target)
+                    while True:
+                        try:
+                            command = precv()
+                            if command == "kill":
+                                backup_chat()
+                                try:
+                                    protocol('DISCONNECT_CLIENTS')
+                                    print(f"[TERMINAL] {address[0]} safely disconnected all clients")
+                                except UnboundLocalError:
+                                    print(f"[TERMINAL] {address[0]} tried to disconnect clients but there are none")
+                                print(f"[TERMINAL] {address[0]} killed server")
+                                exit(0)
+                            elif command == "pswd":
+                                oldpassw = precv()
+                                with open("data/terminalpass.txt", "r+") as f:
+                                    if oldpassw == f.read().rstrip('\n'):
+                                        client.send("VALID".encode('utf-8'))
+                                        newpassw = precv()
+                                        f.truncate(0)
+                                        f.seek(0)
+                                        f.write(newpassw)
+                                        print(f"[TERMINAL] {address[0]} changed password to {newpassw}")
                                     else:
-                                        admin.targeted_send("INVALID", admin, save=False)
+                                        client.send("INVALID".encode('utf-8'))
+                            elif command == "stat":
+                                admin.targeted_send("ONLINE", admin, save=False)
+                            elif command[:9] == "msg user ":
+                                userfound = False
+                                for user in users:
+                                    if user.ip == command[9:]:
+                                        target = user
+                                        userfound = True
+                                        break
+                                if userfound:
+                                    admin.targeted_send("VALID", admin, save=False)
+                                    password = precv()
+                                    admin.targeted_send(f"[{admin.nickname}(ADMIN)(DM) @ {time.strftime('%H:%M', time.localtime())}] " + password, target)
+                                else:
+                                    admin.targeted_send("INVALID", admin, save=False)
 
-                                elif command[:9] == "msg room ":
-                                    admin.room = command[9:]
-                                    msg = precv()
-                                    admin.broadcast(f"[{admin.nickname}(ADMIN) @ {time.strftime('%H:%M', time.localtime())}] " + msg)
-                                elif command == "msg all":
-                                    msg = precv()
-                                    admin.broadcast(f"[{admin.nickname}(ADMIN)(GLOBAL) @ {time.strftime('%H:%M', time.localtime())}] " + msg, roomonly=False)
-                                elif command == "getrooms":
-                                    rooms = ""
-                                    for user in users:
-                                        rooms += f' "{user.room}",'
-                                    if rooms != "":
-                                        admin.targeted_send(rooms[1:-1], admin, save=False)
-                                    else:
-                                        admin.targeted_send("No active rooms", admin, save=False)
-                                elif command == "getusers":
-                                    userstring = ""
-                                    for user in users:
-                                        userstring += f" ({user.ip}, {user.nickname}),"
-                                    if rooms != "":
-                                        admin.targeted_send(userstring[1:-1], admin, save=False)
-                                    else:
-                                        admin.targeted_send("No active users", admin, save=False)
-                                elif command[:7] == "lookup ":
-                                    found = False
-                                    for user in users:
-                                        if user.ip == command[7:]:
-                                            found = True
-                                            break
-                                    if found:
-                                        admin.targeted_send(f"IP = '{user.ip}', Nickname = '{user.nickname}', Room = '{user.room}'", admin, save=False)
-                                    else:
-                                        admin.targeted_send("User is non-existent or is offline", admin, save=False)
-                            except Exception as e:
-                                client.close()
-                                print("[ERROR] server terminal error")
-                                print(e)
-                                break
-                    else:
-                        length = str(len(str("INVALID"))).rjust(HEADER, " ").encode('utf-8')  # works
-                        client.send(length)
-                        client.send("INVALID".encode('utf-8'))
+                            elif command[:9] == "msg room ":
+                                admin.room = command[9:]
+                                msg = precv()
+                                admin.broadcast(f"[{admin.nickname}(ADMIN) @ {time.strftime('%H:%M', time.localtime())}] " + msg)
+                            elif command == "msg all":
+                                msg = precv()
+                                admin.broadcast(f"[{admin.nickname}(ADMIN)(GLOBAL) @ {time.strftime('%H:%M', time.localtime())}] " + msg, roomonly=False)
+                            elif command == "getrooms":
+                                rooms = ""
+                                for user in users:
+                                    rooms += f' "{user.room}",'
+                                if rooms != "":
+                                    admin.targeted_send(rooms[1:-1], admin, save=False)
+                                else:
+                                    admin.targeted_send("No active rooms", admin, save=False)
+                            elif command == "getusers":
+                                userstring = ""
+                                for user in users:
+                                    userstring += f" ({user.ip}, {user.nickname}),"
+                                if rooms != "":
+                                    admin.targeted_send(userstring[1:-1], admin, save=False)
+                                else:
+                                    admin.targeted_send("No active users", admin, save=False)
+                            elif command[:7] == "lookup ":
+                                found = False
+                                for user in users:
+                                    if user.ip == command[7:]:
+                                        found = True
+                                        break
+                                if found:
+                                    admin.targeted_send(f"IP = '{user.ip}', Nickname = '{user.nickname}', Room = '{user.room}'", admin, save=False)
+                                else:
+                                    admin.targeted_send("User is non-existent or is offline", admin, save=False)
+                            elif command[:4] == "ban ":
+                                with open('data/blacklist.txt', 'wb') as f:
+                                    blacklist.append(command[4:])
+                                    pickle.dump(blacklist, f)
+                            elif command[:6] == "unban ":
+                                with open('data/blacklist.txt', 'wb') as f:
+                                    blacklist = [value for value in blacklist if value != command[6:]]
+                                    pickle.dump(blacklist, f)
+                            elif command == "blacklist":
+                                with open('data/blacklist.txt', 'rb') as f:
+                                    admin.targeted_send(str(pickle.load(f)), admin, save=False)
 
-            except Exception as e:
-                print("[ERROR] server terminal error")
-                print(e)
-                try:
-                    admin.cs.close()
-                except UnboundLocalError:
-                    pass
+                        except Exception as e:
+                            client.close()
+                            print("[ERROR] server terminal error")
+                            print(e)
+                            break
+                else:
+                    length = str(len(str("INVALID"))).rjust(HEADER, " ").encode('utf-8')  # works
+                    client.send(length)
+                    client.send("INVALID".encode('utf-8'))
+
+        except Exception as e:
+            print("[ERROR] server terminal error")
+            print(e)
+            try:
+                admin.cs.close()
+            except UnboundLocalError:
+                pass
 
 def accept():
     try:
         while True:
             client, address = server.accept()
+            if address[0] in blacklist:
+                client.close()
+                print(f"[CONNECTION] Access denied {address[0]}")
+                continue
             clients.append(client)
             print(f"[CONNECTION] {address[0]} connected.")
 
@@ -315,6 +338,13 @@ try:
         messages = pickle.load(f)
 except EOFError:
     messages = []
+
+try:
+    print("[BACK_UP] retrieving blacklist")
+    with open('data/blacklist.txt', 'rb') as f:
+        blacklist = pickle.load(f)
+except EOFError:
+    blacklist = []
 
 print("[STARTING] Server starting...")
 thread = threading.Thread(target=terminal_listen)

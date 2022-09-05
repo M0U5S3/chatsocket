@@ -70,19 +70,22 @@ while True:
                 s.connect(ADDR)
 
                 psend(password)
-                reply = precv
+                reply = precv()
                 if reply == "INVALID":
                     print("Password not accepted")
                     s.close()
                     quit()
                 elif reply == "VALID":
-                    print("operation successful")
+                    print("refresh successful")
             except ConnectionResetError:
                 restart()
             except TimeoutError:
                 restart()
 
         while True:
+            global host
+            global ADDR
+            global s
             command = input(">>> ")
             if command == "quit":
                 s.close()
@@ -91,6 +94,7 @@ while True:
                 print('\n--==* COMMANDS *==--\n\n'
                       'help | displays all commands and their usage\n'
                       'quit | safely disconnects from the server and closes the window\n'
+                      'host | prints the host\n'
                       'refresh | attempt to refresh terminal connection\n'
                       'lock | locks terminal\n'
                       'restart | restarts terminal\n'
@@ -105,14 +109,20 @@ while True:
                       'lookup {user.ip} | returns user ip, nickname, room etc\n'
                       'blacklist | show blacklisted IPs\n'
                       'ban {user.ip} | add user to the blacklist\n'
+                      'unban {user.ip} | remove user from the blacklist\n'
                       'nickname | change your displayed nickname (defaulted to \'Administrator\')\n'
                       'close | close all connections and prevent new ones apart from whitelisted IPs\n'
                       'open | allow new connections\n'
-                      'disconnect all | disconnect all connected clients'
-                      'disconnect user {user.ip}')
+                      'disconnect all | disconnect all connected clients\n'
+                      'disconnect user {user.ip} | disconnect user\n'
+                      'clear | clear backed up messages\n'
+                      'backup | backup messages'
+                      )
             elif command == "kill":
                 psend(command)
                 quit()
+            elif command == "host":
+                print(host)
             elif command == "refresh":
                 refresh()
             elif command == "lock":
@@ -140,6 +150,11 @@ while True:
                         refresh()
                 except TimeoutError:
                     print("Server took too long to reply")
+                    option = input("Attempt refresh? y/n ")
+                    if option == "y":
+                        refresh()
+                except ConnectionAbortedError:
+                    print("OFFLINE")
                     option = input("Attempt refresh? y/n ")
                     if option == "y":
                         refresh()
@@ -178,10 +193,29 @@ while True:
             elif command[:7] == "lookup ":
                 psend(command)
                 print(precv())
+            elif command[:4] == "ban ":
+                psend(command)
+                print("operation successful")
+            elif command[:6] == "unban ":
+                psend(command)
+                print("operation successful")
+            elif command == "blacklist":
+                psend(command)
+                print(precv())
             else:
                 print("Invalid syntax | type help for a list of commands")
     except ConnectionResetError:
         print("Connection reset | Attempting refresh")
+        try:
+            refresh()
+        except NameError:
+            print("Refresh failed")
+            try:
+                continue
+            except Exception as e:
+                raise e
+    except ConnectionAbortedError:
+        print("Connection aborted | Attempting refresh")
         try:
             refresh()
         except NameError:
