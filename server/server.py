@@ -49,10 +49,6 @@ class User:
         return message
 
     def broadcast(self, message, roomonly=True, is_pcol=False):
-        if message in ALL_PCOLS and not is_pcol:
-            messages.append(("​" + message, self.room))
-        else:
-            messages.append((message, self.room))
 
         if roomonly:
             print(f"[RO_BROADCAST] " + message)
@@ -64,24 +60,15 @@ class User:
                             self.targeted_send(("​" + message), user)
                         else:
                             self.targeted_send(("​" + message), user)
-                    else:
-                        if user == self:
-                            self.targeted_send(message, user)
-                        else:
-                            self.targeted_send(message, user)
+                    elif not is_pcol:
+                        self.targeted_send(message, user)
         else:
             print(f"[ALL_BROADCAST] " + message)
             for user in users:
                 if message in ALL_PCOLS and not is_pcol:
-                    if user == self:
-                        self.targeted_send(("​" + message), user)
-                    else:
-                        self.targeted_send(("​" + message), user)
-                else:
-                    if user == self:
-                        self.targeted_send(message, user)
-                    else:
-                        self.targeted_send(message, user)
+                    self.targeted_send(("​" + message), user)
+                elif not is_pcol:
+                    self.targeted_send(message, user)
 
     def fetch(self):
         room_messages = []
@@ -89,7 +76,7 @@ class User:
             if msg[1] == self.room:
                 room_messages.append(msg[0])
         for msg in room_messages:
-            self.targeted_send(msg, self)
+            self.targeted_send(msg, self, save=False)
 
 def backup_chat():
     print("[BACK_UP] Backing up chat")
@@ -144,8 +131,8 @@ def handle(user):
     user.targeted_send(f"--== Connected to {host} | room code: \'{user.room}\' ==--", user, save=False)
     while True:
         try:
-            t = time.strftime("%H:%M", time.localtime())
-            message = f"[{user.nickname} @ {t}] " + user.precv().strip('\n ')
+            message = user.precv().strip('\n ')
+            message = f"[{user.nickname} @ {time.strftime('%H:%M', time.localtime())}] " + message
             if user.ip in blacklist:
                 user.broadcast(f"{user.nickname} is banned", roomonly=False)
                 raise Exception
@@ -263,6 +250,8 @@ def terminal_listen():
                             elif command == "blacklist":
                                 with open('data/blacklist.txt', 'rb') as f:
                                     admin.targeted_send(str(pickle.load(f)), admin, save=False)
+                            elif command[:9] == "nickname ":
+                                admin.nickname = command[9:]
 
                         except Exception as e:
                             client.close()

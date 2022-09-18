@@ -1,0 +1,10 @@
+
+
+
+ CCCCC  hh              tt     SSSSS                kk            tt
+CC    C hh        aa aa tt    SS       oooo    cccc kk  kk   eee  tt
+CC      hhhhhh   aa aaa tttt   SSSSS  oo  oo cc     kkkkk  ee   e tttt
+CC    C hh   hh aa  aaa tt         SS oo  oo cc     kk kk  eeeee  tt
+ CCCCC  hh   hh  aaa aa  tttt  SSSSS   oooo   ccccc kk  kk  eeeee  tttt
+
+

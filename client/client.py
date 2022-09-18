@@ -3,8 +3,18 @@ import threading
 import tkinter
 import tkinter.scrolledtext
 from tkinter import simpledialog
+import random
+import os
 
-host = input("Host: (or input \"ls\" for load save) ")
+VERSION = "v0.1.0"
+
+rand_file = os.path.join("data", "title-fonts", random.choice(os.listdir(os.path.join("data", "title-fonts"))))
+with open(rand_file, 'r') as f:
+    print(f.read() + f"\t\t\t\t\t\t{VERSION}-client")
+print("\n\t\t\tBY M0U5S3\n"
+      "\n\t\t\t\t\t\t\t\t\tGIT REPO: https://github.com/M0U5S3/chatsocket")
+
+host = input("\n\nEnter server IP: (or press enter to load saved IP) ")
 PORT = 9090
 HEADER = 64
 
@@ -23,10 +33,10 @@ for i in PCOLS.keys():
     for x in PCOLS[i].keys():
         ALL_PCOLS.append(PCOLS[i][x])
 
-if host == "ls":
+if not host:
     with open("data/host.txt", "r") as f:
         host = f.read()
-        print(host)
+        print("Joining " + host)
 elif input("save host ip? y/n ") == "y":
     print("saving ip")
     with open("data/host.txt", "w") as f:
@@ -40,7 +50,13 @@ class Client:
 
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.sock.connect((host, port))
+        try:
+            self.sock.connect((host, port))
+        except TimeoutError:
+            print("TimeoutError: Server probably is offline or doesnt exist")
+            quit()
+
+        print("Launching GUI. You may minimise this window")
 
         self.nickname = simpledialog.askstring("Nickname", "Please choose a name", parent=msg)
         self.room_code = simpledialog.askstring("Room Code", "Please enter a room code", parent=msg)
@@ -130,8 +146,8 @@ class Client:
                         self.text_area.config(state='disabled')
             except ConnectionAbortedError:
                 pass
-            except:
-                print("error")
+            except Exception as e:
+                print(e)
                 self.stop
                 break
 

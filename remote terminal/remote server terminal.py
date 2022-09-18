@@ -3,7 +3,7 @@ import hashlib
 from getpass import getpass
 
 HEADER = 64
-TIMEOUT = 2
+TIMEOUT = 1
 PORT = 9091
 
 
@@ -202,6 +202,8 @@ while True:
             elif command == "blacklist":
                 psend(command)
                 print(precv())
+            elif command[:9] == "nickname ":
+                psend(command)
             else:
                 print("Invalid syntax | type help for a list of commands")
     except ConnectionResetError:
